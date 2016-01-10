@@ -62,7 +62,8 @@ void monitorSlaves(int i,int j){}
 int **alloc_2d_int(int rows, int cols) {
     int *data = (int *)malloc(rows*cols*sizeof(int));
     int **array= (int **)malloc(rows*sizeof(int*));
-    for (int i=0; i<rows; i++)
+    int i;
+    for (i=0; i<rows; i++)
         array[i] = &(data[cols*i]);
 
     return array;
@@ -110,15 +111,12 @@ int main (int argc, char **argv) {
 		 
   		int matrice_size;
 
-
-
  		FILE *file;
   		file=fopen(argv[1], "r");
   		fscanf(file,"%d",&matrice_size);
 
 	/*matrix*/
-	/*Use double , you have floating numbers not int*/
-
+	
   	/*
 	int** mat=malloc(matrice_size*sizeof(int*)); 
 	for(i=0;i<matrice_size;++i)
@@ -166,7 +164,7 @@ int main (int argc, char **argv) {
 	 	sizeArray[1]=matrice_size; 
 
 	 	//send matrice parts' sizes
-	 	for (int i = 1; i < num_procs; ++i)
+	 	for (i = 1; i < num_procs; ++i)
 	 	{
 	 		MPI_Send(&sizeArray[0],2,MPI_INT,i,1,MPI_COMM_WORLD);	
 	 	}
@@ -208,7 +206,7 @@ int main (int argc, char **argv) {
  			 
  	 		for(j=0;j<row_num_fproc;j++)
  	 		{
- 	 			for (int k = 0; k < matrice_size; k++)
+ 	 			for (k = 0; k < matrice_size; k++)
  	 			{
  	 				printf("%d\t " ,temp[j][k]); 	 			
  	 			
