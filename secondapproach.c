@@ -8,7 +8,6 @@
 
 int** maze;
 int matrice_size, row_size, row_num_fproc;
-int** maze_finish;
 int** array_signal;
 
 
@@ -155,7 +154,7 @@ int main (int argc, char **argv) {
         int** node_maze = alloc_2d_int(sub_size,sub_size);
         for(int k= 0; k< sub_size; k++)
         {
-          for(int l= 0; k<sub_size ; l++)
+          for(int l= 0; l<sub_size ; l++)
           {
             node_maze[k][l] = maze[k + (i-1)*sub_size] [l + (j-1)*sub_size];
 
@@ -187,7 +186,7 @@ int main (int argc, char **argv) {
     	printf("iteration count : %d ----\n",iteration++);
     	//signals iteration	
     	flag=0;
-       	for (int i = 1; i < num_procs ; ++i)
+       	for (int i = 1; i < num_procs ; i++)
     	{
     		int deadend=0;
     		MPI_Recv(&deadend,1,MPI_INT,i,14,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
@@ -215,8 +214,8 @@ int main (int argc, char **argv) {
         int** node_maze = alloc_2d_int(sub_size, sub_size);
 
         MPI_Recv(&(node_maze[0][0]), sub_size*sub_size, MPI_INT, ((i-1)*p)+j, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        for(int k = 0; k < row_num_fproc; k++) {
-          for(int l = 0; l < matrice_size; l++) {
+        for(int k = 0; k < sub_size; k++) {
+          for(int l = 0; l < sub_size; l++) {
             maze_finish[k + ((i - 1) * sub_size)][l+ (j-1)*sub_size] = node_maze[k][l];
           }
         }
@@ -252,7 +251,7 @@ int main (int argc, char **argv) {
     //p squera root of slaves
     int p = sqrt(num_procs-1);
 
-    printf("my id %d  p %d  num_procs %d \n",my_id,p,num_procs );
+   // printf("my id %d  p %d  num_procs %d \n",my_id,p,num_procs );
     //largest iteration parsing all data controlled by master
     int flag;
     MPI_Recv(&flag,1,MPI_INT,0,15,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
@@ -377,8 +376,8 @@ int main (int argc, char **argv) {
 	}
 	  //MPI_Recv(&node_maze, 200, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 /*
-    for(int k = 0; k < row_num_fproc ; k++) {
-      for(int l = 0; l < matrice_size; l++) {
+    for(int k = 0; k < sub_size ; k++) {
+      for(int l = 0; l < sub_size; l++) {
         //node_maze[k][l] = maze[k + ((i - 1) * row_num_fproc)][l];
         printf("%d ", node_maze[k][l]);
       }
@@ -386,6 +385,7 @@ int main (int argc, char **argv) {
     }
       printf("------------------\n");
 */
+
       MPI_Send(&(node_maze[0][0]),sub_size * sub_size, MPI_INT, 0, 3, MPI_COMM_WORLD);
   }
 

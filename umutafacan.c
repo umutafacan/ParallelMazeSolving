@@ -1,9 +1,24 @@
+/*
+Student Name: UMUT AFACAN
+Student Number: 2010400141
+Compile Status: Compiling
+Program Status: Working
+Notes: Matrice size should be divisible by proccessor count-1.
+the 1 for master.
+*/
+
 #include <stdio.h>
 #include <mpi.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
 #include <limits.h>
+
+#define A_DIRECTION 30
+#define B_DIRECTION 31
+
+#define NEXT_ITERATION 15
+#define DEADEND_SIGNAL 14
 
 
 int** maze;
@@ -148,7 +163,7 @@ int main (int argc, char **argv) {
        	for (int i = 1; i < num_procs ; ++i)
     	{
     		int deadend=0;
-    		MPI_Recv(&deadend,1,MPI_INT,i,14,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    		MPI_Recv(&deadend,1,MPI_INT,i,DEADEND_SIGNAL,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     		if (deadend == 1)
     		{
     			//if any deadend exist signals next iteration
@@ -159,13 +174,14 @@ int main (int argc, char **argv) {
     	for (int i = 1; i < num_procs ; ++i)
     	{
     		
-    		MPI_Send(&flag,1,MPI_INT,i,15,MPI_COMM_WORLD);
+    		MPI_Send(&flag,1,MPI_INT,i,NEXT_ITERATION,MPI_COMM_WORLD);
     	}
 
 
     }
 
 
+    //collects datas from the slaves
     int** maze_finish = alloc_2d_int(matrice_size,matrice_size);
 
     for(int i = 1; i < num_procs; i++) {
@@ -185,7 +201,6 @@ int main (int argc, char **argv) {
 
 
 
-    //printf("*****************\n");
     for (int i = 0; i < matrice_size; ++i)
     {
      for (int j = 0; j < matrice_size; ++j)
@@ -274,24 +289,14 @@ int main (int argc, char **argv) {
 	    
 
 	    //sends deadend data to master
-	    MPI_Send(&deadend,1,MPI_INT,0,14,MPI_COMM_WORLD);
+	    MPI_Send(&deadend,1,MPI_INT,0,DEADEND_SIGNAL,MPI_COMM_WORLD);
 
 	    //receives next iteration signal
-	    MPI_Recv(&flag,1,MPI_INT,0,15,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	    MPI_Recv(&flag,1,MPI_INT,0,NEXT_ITERATION,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 	  
 	    
 	}
-	  //MPI_Recv(&node_maze, 200, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-/*
-    for(int k = 0; k < row_num_fproc ; k++) {
-      for(int l = 0; l < matrice_size; l++) {
-        //node_maze[k][l] = maze[k + ((i - 1) * row_num_fproc)][l];
-        printf("%d ", node_maze[k][l]);
-      }
-      printf("\n");
-    }
-      printf("------------------\n");
-*/
+	   //sends output to master
       MPI_Send(&(node_maze[0][0]),row_num_fproc * matrice_size, MPI_INT, 0, 3, MPI_COMM_WORLD);
   }
 
