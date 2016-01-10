@@ -253,16 +253,62 @@ int main (int argc, char **argv) {
     int** node_maze = alloc_2d_int(row_num_fproc, matrice_size);
     MPI_Recv(&(node_maze[0][0]), row_num_fproc * matrice_size, MPI_INT, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
+
+    //largest iteration parsing all data controlled by master
     int flag;
     MPI_Recv(&flag,1,MPI_INT,0,15,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     while(flag)
     {
+
+    	int lowerLine[matrice_size];
+    	int upperLine[matrice_size];
+    	//if first slave
+	    if(my_id == 1){
+
+	    	 //get lowerline from below neighboor
+	    	MPI_Recv(&lowerLine,matrice_size,MPI_INT,my_id+1,30,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+
+	    	//send to lower neighboor
+	    	MPI_Send(&node_maze[row_num_fproc-1][0],matrice_size,MPI_INT,my_id+1,31,MPI_COMM_WORLD);
+
+		
+		}
+		//other slaves
+		else if(my_id<num_procs-1)
+		{
+			//send upper neighboor
+			MPI_Send(&node_maze[0][0],matrice_size,MPI_INT,my_id-1,30,MPI_COMM_WORLD);
+			//get from lower neighboor
+			MPI_Recv(&lowerLine,matrice_size,MPI_INT,my_id+1,30,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+
+			//get from upper 
+			MPI_Recv(&upperLine,matrice_size,MPI_INT,my_id-1,31,MPI_COMM_WORLD,MPI_STATUS_IGNORE);			
+			//send to lower;
+			MPI_Send(&node_maze[row_num_fproc-1][0],matrice_size,MPI_INT,my_id+1,31,MPI_COMM_WORLD);
+			
+			
+
+		}//last slave
+		else
+		{
+			//send to upper
+			MPI_Send(&node_maze[0][0],matrice_size,MPI_INT,my_id-1,30,MPI_COMM_WORLD);
+
+			//get from upper
+			MPI_Recv(&upperLine,matrice_size,MPI_INT,my_id-1,31,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+
+		}
+
+
+
     	int deadend=0;
 	    for(int i = 0; i< row_num_fproc  ;i++)
 	    {
 	    	for (int j = 0; j < matrice_size; j++)
 	    	{
-		    	int res = checkCells(i,j,my_id,node_maze,row_num_fproc,matrice_size);
+		    	
+		    	int res = checkCells(i,j,my_id,node_maze,row_num_fproc,matrice_size,upperLine,lowerLine);
+
 	    		if(2 == res )
 	    		{
 	    			node_maze[i][j]=0;
@@ -272,45 +318,8 @@ int main (int argc, char **argv) {
 	    		
 	    	}
 	    }
-	    int send_sig = 0;
 	   
-	    //if first slave
-	    if(my_id == 1){
-
-	    	 MPI_Send(&send_sig,1,MPI_INT,proc_id+1)
-
-	    	while(1 == 1){
-	    		int neighboor_signal_down; 
-	    		MPI_Recv(&neighboor_signal_down,my_id+1,MPI_INT,2,30,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-	    		if(neighboor_signal_down == 1)
-	    		{
-	    			int sig = 1;
-	    			MPI_Send(&sig,1,MPI_INT,my_id+1,31,MPI_COMM_WORLD);
-	    			int* array =malloc(2*sizeof(int)); 
-	    			MPI_Recv(&array,2,MPI_INT,my_id+1,32,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-	    			MPI_Send(&node_maze[array[0]][array[1]],1,MPI_INT,my_id+1,33,MPI_COMM_WORLD);
-	    		}
-	    		else{
-	    			break
-	    		}
-	    	}	
-
-		
-		}
-		//last slave
-		else if(my_id==num_procs-1)
-		{
-
-
-
-		}//other slaves
-		else
-		{
-
-
-
-		}
-
+	    
 
 	    //sends deadend data to master
 	    MPI_Send(&deadend,1,MPI_INT,0,14,MPI_COMM_WORLD);
