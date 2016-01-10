@@ -5,46 +5,11 @@
 #include <math.h>
 #include <limits.h>
 
-#define WAIT_TAG 9
-#define SIGNAL_TAG 10
 
 int** maze;
 int matrice_size, row_size, row_num_fproc;
 int** maze_finish;
 int** array_signal;
-
-int monitorSlaves(int i, int j, int **array_signal, int size, int proc_num)
-{
-	int count = 0;
-	for (int k = 1; k < proc_num; k++)
-	{
-		if(array_signal[i+k-1][j] == 1)
-			count++;
-	}
-	
-	if(count == proc_num-1)
-		return 1;
-	else
-		return 0;
-}
-//needed to add indexing
-void waitMaster()
-{
-	int wait = 0;
-	while(wait == 0)
-	{
-		MPI_Recv(&waitMaster,1,MPI_INT,0,WAIT_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-	}
-
-}
-
-//also need indexes
-void signalMaster()
-{		
-		int message =1; 
-		MPI_Send(&message,1,MPI_INT,0,SIGNAL_TAG,MPI_COMM_WORLD);
-}
-
 
 
 
@@ -154,32 +119,7 @@ int main (int argc, char **argv) {
 
     array_signal = alloc_2d_int(matrice_size,matrice_size);
 
-    /*
-    //monitor slaves
-    for(int i = 0 ; i< row_num_fproc;i++)
-    {
-    	for(int j = 0 ; j < matrice_size; j++)
-    	{
-    		//sends signal to slaves for iteration
-    		for (int k = 1; k < num_procs; k++)
-    		{
-    			int message=1;
-    			MPI_bcast(&message,1,MPI_INT,0,MPI_COMM_WORLD);
-    		}
-    		int slave=0;
-    		//waits until all slaves sent signal for completion
-    		while ( 0 == slave )
-    		{
-    			for(int u = 1 ; u < num_procs; u++)
-    			{
-    				MPI_Recv(&(array_signal[i+u-1][j]),1,MPI_INT,u,SIGNAL_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-    			}
-    			monitorSlaves(i,j,array_signal,matrice_size,num_procs);
-    		}
-
-    	}
-    }
-*/
+   
     int flag=1;
 
    	for (int i = 1; i < num_procs ; ++i)
