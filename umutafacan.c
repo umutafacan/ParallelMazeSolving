@@ -27,7 +27,7 @@ int monitorSlaves(int i, int j, int **array_signal, int size, int proc_num)
 	else
 		return 0;
 }
-
+//needed to add indexing
 void waitMaster()
 {
 	int wait = 0;
@@ -37,25 +37,45 @@ void waitMaster()
 	}
 
 }
+
+//also need indexes
 void signalMaster()
 {		
 		int message =1; 
 		MPI_Send(&message,1,MPI_INT,0,SIGNAL_TAG,MPI_COMM_WORLD);
 }
 
+int wantDataFromNeighboor(int i, int j, int neighboor_id)
+{
+	int *array = malloc(2*sizeof(int));
+	array[0]=i;
+	array[1]=j;
+	MPI_Send(&array,2,MPI_INT,neighboor_id,21,MPI_COMM_WORLD);
+
+	//get data
+	int data;
+	MPI_Recv(&data,1,MPI_INT,neighboor_id,20,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	return data;
+}
 
 
-int checkNeighboors(int i,int j,int proc_id,int **array, int row, int col)
+
+int checkCells(int i,int j,int proc_id,int **array, int row, int col)
 {
 	if(array[i][j] == 0)
 		return 0;
+
+	int proc_count = col/row;
 	int count=0;
 	//check above
 	if(i>0)
 	{
 		if(array[i-1][j] == 0)
 			count++;
-
+	}
+	else if(proc_id>1)
+	{
+		wantDataFromNeighboor(row-1,j,proc_id-1);
 	}
 	//check right
 	if(j<col-1)
@@ -68,8 +88,12 @@ int checkNeighboors(int i,int j,int proc_id,int **array, int row, int col)
 	{
 		if(array[i+1][j] == 0)
 			count++;
+	}else if(proc_id < proc_count)
+	{
+		wantDataFromNeighboor(0,j,proc_id+1);
 	}
-	// check left
+
+		// check left
 	if(j>0)
 	{
 		if(array[i][j-1] == 0)
@@ -77,7 +101,7 @@ int checkNeighboors(int i,int j,int proc_id,int **array, int row, int col)
 	}
 	if (count == 3)
 	{
-		return 0;
+		return 2;
 	}else
 		return 1;
 	
@@ -139,6 +163,7 @@ int main (int argc, char **argv) {
 
     array_signal = alloc_2d_int(matrice_size,matrice_size);
 
+    /*
     //monitor slaves
     for(int i = 0 ; i< row_num_fproc;i++)
     {
@@ -148,26 +173,58 @@ int main (int argc, char **argv) {
     		for (int k = 1; k < num_procs; k++)
     		{
     			int message=1;
-    			MPI_Send(&message,1,MPI_INT,k,WAIT_TAG,MPI_COMM_WORLD);
+    			MPI_bcast(&message,1,MPI_INT,0,MPI_COMM_WORLD);
     		}
-
+    		int slave=0;
     		//waits until all slaves sent signal for completion
-    		while (monitorSlaves(i,j,array_signal,matrice_size,num_procs))
+    		while ( 0 == slave )
     		{
     			for(int u = 1 ; u < num_procs; u++)
     			{
-    				MPI_Recv(&array_signal[i+u-1][j],1,MPI_INT,u,SIGNAL_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    				MPI_Recv(&(array_signal[i+u-1][j]),1,MPI_INT,u,SIGNAL_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
     			}
-
+    			monitorSlaves(i,j,array_signal,matrice_size,num_procs);
     		}
 
     	}
     }
+*/
+    int flag=1;
 
+   	for (int i = 1; i < num_procs ; ++i)
+   	{
+   	 	MPI_Send(&flag,1,MPI_INT,i,15,MPI_COMM_WORLD);
+    }
+
+    int iteration = 0;
+    while(flag == 1)
+    {
+    	printf("iteration count : %d ----\n",iteration++);
+    	//signals iteration	
+    	flag=0;
+       	for (int i = 1; i < num_procs ; ++i)
+    	{
+    		int deadend=0;
+    		MPI_Recv(&deadend,1,MPI_INT,i,14,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    		if (deadend == 1)
+    		{
+    			//if any deadend exist signals next iteration
+    			flag=1;
+    		}
+    	}
+
+    	for (int i = 1; i < num_procs ; ++i)
+    	{
+    		
+    		MPI_Send(&flag,1,MPI_INT,i,15,MPI_COMM_WORLD);
+    	}
+
+
+    }
 
 
     int** maze_finish = alloc_2d_int(matrice_size,matrice_size);
-    
+
     for(int i = 1; i < num_procs; i++) {
       int** node_maze = alloc_2d_int(row_num_fproc, matrice_size);
 
@@ -205,18 +262,57 @@ int main (int argc, char **argv) {
     int** node_maze = alloc_2d_int(row_num_fproc, matrice_size);
     MPI_Recv(&(node_maze[0][0]), row_num_fproc * matrice_size, MPI_INT, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-
-    for(int i = 0; i< row_num_fproc  ;i++)
+    int flag;
+    MPI_Recv(&flag,1,MPI_INT,0,15,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    while(flag)
     {
-    	for (int j = 0; j < matrice_size; j++)
-    	{
-    		waitMaster();
-    		node_maze[i][j] = checkNeighboors(i,j,my_id,node_maze,row_num_fproc,matrice_size);
-    		signalMaster();
-    	}
+    	int deadend=0;
+	    for(int i = 0; i< row_num_fproc  ;i++)
+	    {
+	    	for (int j = 0; j < matrice_size; j++)
+	    	{
+		    	int res = checkCells(i,j,my_id,node_maze,row_num_fproc,matrice_size);
+	    		if(2 == res )
+	    		{
+	    			node_maze[i][j]=0;
+	    			deadend=1; // deadend exists
+	    			printf("deadend exists\n");
+	    		}
+	    		
+	    	}
+	    }
 
-    }
+	    //wait for signals neighboors
+	    if(my_id == 1){
 
+	    	while(1 == 1){
+	    		int neighboor_signal_down; 
+	    		MPI_Recv(&neighboor_signal_down,my_id+1,MPI_INT,2,30,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	    		if(neighboor_signal_down == 1)
+	    		{
+	    			int sig = 1;
+	    			MPI_Send(&sig,1,MPI_INT,my_id+1,31,MPI_COMM_WORLD);
+	    			int* array =malloc(2*sizeof(int)); 
+	    			MPI_Recv(&array,2,MPI_INT,my_id+1,32,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	    			MPI_Send(&node_maze[array[0]][array[1]],1,MPI_INT,my_id+1,33,MPI_COMM_WORLD);
+	    		}
+	    		else{
+	    			break
+	    		}
+	    	}	
+
+		
+		}
+
+
+	    //sends deadend data to master
+	    MPI_Send(&deadend,1,MPI_INT,0,14,MPI_COMM_WORLD);
+
+	    //receives next iteration signal
+	    MPI_Recv(&flag,1,MPI_INT,0,15,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	  
+	    
+	}
 	  //MPI_Recv(&node_maze, 200, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 /*
     for(int k = 0; k < row_num_fproc ; k++) {
