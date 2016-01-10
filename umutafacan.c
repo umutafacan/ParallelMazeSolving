@@ -45,22 +45,11 @@ void signalMaster()
 		MPI_Send(&message,1,MPI_INT,0,SIGNAL_TAG,MPI_COMM_WORLD);
 }
 
-int wantDataFromNeighboor(int i, int j, int neighboor_id)
-{
-	int *array = malloc(2*sizeof(int));
-	array[0]=i;
-	array[1]=j;
-	MPI_Send(&array,2,MPI_INT,neighboor_id,21,MPI_COMM_WORLD);
-
-	//get data
-	int data;
-	MPI_Recv(&data,1,MPI_INT,neighboor_id,20,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-	return data;
-}
 
 
 
-int checkCells(int i,int j,int proc_id,int **array, int row, int col)
+
+int checkCells(int i,int j,int proc_id,int **array, int row, int col,int *upperLine, int *lowerLine)
 {
 	if(array[i][j] == 0)
 		return 0;
@@ -75,7 +64,8 @@ int checkCells(int i,int j,int proc_id,int **array, int row, int col)
 	}
 	else if(proc_id>1)
 	{
-		wantDataFromNeighboor(row-1,j,proc_id-1);
+	 	if(upperLine[j]== 0)
+	 		count++;
 	}
 	//check right
 	if(j<col-1)
@@ -90,7 +80,8 @@ int checkCells(int i,int j,int proc_id,int **array, int row, int col)
 			count++;
 	}else if(proc_id < proc_count)
 	{
-		wantDataFromNeighboor(0,j,proc_id+1);
+		if(lowerLine[j] == 0)
+			count++;
 	}
 
 		// check left
@@ -281,9 +272,12 @@ int main (int argc, char **argv) {
 	    		
 	    	}
 	    }
-
-	    //wait for signals neighboors
+	    int send_sig = 0;
+	   
+	    //if first slave
 	    if(my_id == 1){
+
+	    	 MPI_Send(&send_sig,1,MPI_INT,proc_id+1)
 
 	    	while(1 == 1){
 	    		int neighboor_signal_down; 
@@ -302,6 +296,19 @@ int main (int argc, char **argv) {
 	    	}	
 
 		
+		}
+		//last slave
+		else if(my_id==num_procs-1)
+		{
+
+
+
+		}//other slaves
+		else
+		{
+
+
+
 		}
 
 
