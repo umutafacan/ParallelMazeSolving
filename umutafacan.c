@@ -97,8 +97,20 @@ int main (int argc, char **argv) {
 
     fclose(file);
 
+    //output file
+    char output[80] = "";
+    char *val = strtok(argv[2], ".");
+    strcat(output, val);
+    val = strtok(NULL, ":");
+    strcat(output, ".txt");
+
+    // redirecting stdout to file.
+    stdout = freopen(output, "w", stdout);
+
+
+
     row_num_fproc = matrice_size / (num_procs - 1);
-    printf("num_procs %d\nrow_num_fproc %d\nmatrice_size %d\n ",num_procs, row_num_fproc, matrice_size);
+   // printf("num_procs %d\nrow_num_fproc %d\nmatrice_size %d\n ",num_procs, row_num_fproc, matrice_size);
 
     for(int i = 1; i < num_procs; i++) {
       int** node_maze = alloc_2d_int(row_num_fproc, matrice_size);
@@ -130,7 +142,7 @@ int main (int argc, char **argv) {
     int iteration = 0;
     while(flag == 1)
     {
-    	printf("iteration count : %d ----\n",iteration++);
+    	//printf("iteration count : %d ----\n",iteration++);
     	//signals iteration	
     	flag=0;
        	for (int i = 1; i < num_procs ; ++i)
@@ -173,7 +185,7 @@ int main (int argc, char **argv) {
 
 
 
-    printf("*****************\n");
+    //printf("*****************\n");
     for (int i = 0; i < matrice_size; ++i)
     {
      for (int j = 0; j < matrice_size; ++j)
@@ -253,7 +265,7 @@ int main (int argc, char **argv) {
 	    		{
 	    			node_maze[i][j]=0;
 	    			deadend=1; // deadend exists
-	    			printf("deadend exists\n");
+	    		//	printf("deadend exists\n");
 	    		}
 	    		
 	    	}

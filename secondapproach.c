@@ -76,7 +76,7 @@ int checkCells(int i,int j,int proc_id,int **array, int row, int col,int *upperL
 
 int *getLowestRow(int** array, int n)
 {
-  int result[n];
+  int* result = (int *)malloc(n*sizeof(int));
   for(int i = 0 ;i< n;i++)
     result[i] = array[n-1][i];
 
@@ -84,7 +84,7 @@ int *getLowestRow(int** array, int n)
 }
 int *getUppestRow(int** array, int n)
 {
-  int result[n];
+  int* result = (int *)malloc(n*sizeof(int));
   for(int i = 0 ;i< n;i++)
     result[i] = array[0][i];
   
@@ -92,7 +92,7 @@ int *getUppestRow(int** array, int n)
 }
 int *getLeftestColumn(int** array, int n)
 {
-  int result[n];
+ int* result = (int *)malloc(n*sizeof(int));
   for(int i = 0 ;i< n;i++)
     result[i] = array[i][0];
   
@@ -100,7 +100,7 @@ int *getLeftestColumn(int** array, int n)
 }
 int *getRightestColumn(int** array, int n)
 {
-  int result[n];
+  int* result = (int *)malloc(n*sizeof(int));
   for(int i = 0 ;i< n;i++)
     result[i] = array[i][n-1];
   
@@ -152,7 +152,7 @@ int main (int argc, char **argv) {
    {
       for(int j = 1 ; j <=p ; j++)
       {
-        int node_maze = alloc_2d_int(sub_size,sub_size);
+        int** node_maze = alloc_2d_int(sub_size,sub_size);
         for(int k= 0; k< sub_size; k++)
         {
           for(int l= 0; k<sub_size ; l++)
@@ -217,7 +217,7 @@ int main (int argc, char **argv) {
         MPI_Recv(&(node_maze[0][0]), sub_size*sub_size, MPI_INT, ((i-1)*p)+j, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         for(int k = 0; k < row_num_fproc; k++) {
           for(int l = 0; l < matrice_size; l++) {
-            maze_finish[k + ((i - 1) * sub)][l+ (j-1)*sub_size] = node_maze[k][l];
+            maze_finish[k + ((i - 1) * sub_size)][l+ (j-1)*sub_size] = node_maze[k][l];
           }
         }
       }
@@ -252,6 +252,7 @@ int main (int argc, char **argv) {
     //p squera root of slaves
     int p = sqrt(num_procs-1);
 
+    printf("my id %d  p %d  num_procs %d \n",my_id,p,num_procs );
     //largest iteration parsing all data controlled by master
     int flag;
     MPI_Recv(&flag,1,MPI_INT,0,15,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
@@ -262,15 +263,16 @@ int main (int argc, char **argv) {
       	int upperLine[sub_size];
         int rightLine[sub_size];
         int leftLine[sub_size];
-
+        
       	//if first column
   	    if( (my_id-1)%p == 0){
   	    	 //get right from right neighboor
   	    	MPI_Recv(&rightLine,sub_size,MPI_INT,my_id+1,30,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
   	    	//send to left neighboor
-          int rightest[sub_size]= getRightestColumn(); 
-  	    	MPI_Send(&rightest,matrice_size,MPI_INT,my_id+1,31,MPI_COMM_WORLD);
+          int* rightest= malloc(sub_size*sizeof(int));
+          rightest=getRightestColumn(node_maze,sub_size); 
+  	    	MPI_Send(&rightest,sub_size,MPI_INT,my_id+1,31,MPI_COMM_WORLD);
 
   		
     		}
@@ -278,7 +280,7 @@ int main (int argc, char **argv) {
     		else if( (my_id-1)%p <p-1)
     		{
     			//send upper neighboor
-          int leftest[sub_size]=getLeftestColumn(node_maze,sub_size);
+          int* leftest=getLeftestColumn(node_maze,sub_size);
     			MPI_Send(&leftest,sub_size,MPI_INT,my_id-1,30,MPI_COMM_WORLD);
     			//get from right neighboor
     			MPI_Recv(&rightLine,sub_size,MPI_INT,my_id+1,30,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
@@ -286,7 +288,7 @@ int main (int argc, char **argv) {
     			//get from left 
     			MPI_Recv(&leftLine,sub_size,MPI_INT,my_id-1,31,MPI_COMM_WORLD,MPI_STATUS_IGNORE);			
     			//send to right;
-          int rightest[sub_size]=getRightestColumn(node_maze,sub_size);
+          int* rightest=getRightestColumn(node_maze,sub_size);
     			MPI_Send(&rightest,sub_size,MPI_INT,my_id+1,31,MPI_COMM_WORLD);
     			
     			
@@ -295,21 +297,21 @@ int main (int argc, char **argv) {
     		else
     		{
     			//send to upper
-          int leftest[sub_size]=getLeftestColumn(node_maze,sub_size);
+          int* leftest=getLeftestColumn(node_maze,sub_size);
     			MPI_Send(getLeftestColumn,sub_size,MPI_INT,my_id-1,30,MPI_COMM_WORLD);
 
     			//get from upper
-    			MPI_Recv(&left,sub_size,MPI_INT,my_id-1,31,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    			MPI_Recv(&leftLine,sub_size,MPI_INT,my_id-1,31,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
     		}
-
+        
           //if first row
         if( (my_id-1)/p == 0){
            //get lowerline from below neighboor
           MPI_Recv(&lowerLine,sub_size,MPI_INT,my_id+p,32,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
           //send to lower neighboor
-          int lowest[sub_size] = getLowestRow(node_maze,sub_size);
+          int* lowest = getLowestRow(node_maze,sub_size);
           MPI_Send(&lowest,sub_size,MPI_INT,my_id+p,33,MPI_COMM_WORLD);
 
       
@@ -318,7 +320,7 @@ int main (int argc, char **argv) {
         else if( (my_id-1)/p <p-1)
         {
           //send upper neighboor
-          int uppest[sub_size]=getUppestRow(node_maze,sub_size);
+          int* uppest=getUppestRow(node_maze,sub_size);
           MPI_Send(&uppest,sub_size,MPI_INT,my_id-p,32,MPI_COMM_WORLD);
           //get from lower neighboor
           MPI_Recv(&lowerLine,sub_size,MPI_INT,my_id+p,32,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
@@ -326,7 +328,7 @@ int main (int argc, char **argv) {
           //get from upper 
           MPI_Recv(&upperLine,sub_size,MPI_INT,my_id-p,33,MPI_COMM_WORLD,MPI_STATUS_IGNORE);      
           //send to lower;
-          int lowest[sub_size]=getLowestRow(node_maze,sub_size);
+          int* lowest=getLowestRow(node_maze,sub_size);
           MPI_Send(&lowest,sub_size,MPI_INT,my_id+p,33,MPI_COMM_WORLD);
           
           
@@ -335,7 +337,7 @@ int main (int argc, char **argv) {
         else
         {
           //send to upper
-          int uppest[sub_size]=getUppestRow(node_maze,sub_size);
+          int* uppest=getUppestRow(node_maze,sub_size);
           MPI_Send(&uppest,sub_size,MPI_INT,my_id-p,32,MPI_COMM_WORLD);
 
           //get from upper
@@ -352,7 +354,7 @@ int main (int argc, char **argv) {
 	    	{
 		    	
 		    	int res = checkCells(i,j,my_id,node_maze,sub_size,sub_size,upperLine,lowerLine,rightLine,leftLine,p);
-
+          
 	    		if(2 == res )
 	    		{
 	    			node_maze[i][j]=0;
