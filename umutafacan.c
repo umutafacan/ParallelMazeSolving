@@ -5,20 +5,51 @@
 #include <math.h>
 #include <limits.h>
 
+#define WAIT_TAG 9
+#define SIGNAL_TAG 10
 
+int** maze;
+int matrice_size, row_size, row_num_fproc;
+int** maze_finish;
+int** array_signal;
 
-
-int*** maze;
-
-//checks 4 neighboor if exists 
-int checkNeighboors(int i,int j, int p, int** array, int row, int col)
+int monitorSlaves(int i, int j, int **array_signal, int size, int proc_num)
 {
-	//wall count
+	int count = 0;
+	for (int k = 1; k < proc_num; k++)
+	{
+		if(array_signal[i+k-1][j] == 1)
+			count++;
+	}
+	
+	if(count == proc_num-1)
+		return 1;
+	else
+		return 0;
+}
+
+void waitMaster()
+{
+	int wait = 0;
+	while(wait == 0)
+	{
+		MPI_Recv(&waitMaster,1,MPI_INT,0,WAIT_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+	}
+
+}
+void signalMaster()
+{		
+		int message =1; 
+		MPI_Send(&message,1,MPI_INT,0,SIGNAL_TAG,MPI_COMM_WORLD);
+}
+
+
+
+int checkNeighboors(int i,int j,int proc_id,int **array, int row, int col)
+{
+	if(array[i][j] == 0)
+		return 0;
 	int count=0;
-	//return if its wall already
-	if (array[i][j] == 0 ){
-			return 0;
-	} 
 	//check above
 	if(i>0)
 	{
@@ -44,50 +75,24 @@ int checkNeighboors(int i,int j, int p, int** array, int row, int col)
 		if(array[i][j-1] == 0)
 			count++;
 	}
-
-
-	return 0;
+	if (count == 3)
+	{
+		return 0;
+	}else
+		return 1;
+	
 } 
-
-//wait
-void waitMaster(int i,int j){}
-//signal
-void signalMaster(int i, int j, int p)
-{}
-//monitor
-void monitorSlaves(int i,int j){}
 
 
 
 int **alloc_2d_int(int rows, int cols) {
     int *data = (int *)malloc(rows*cols*sizeof(int));
     int **array= (int **)malloc(rows*sizeof(int*));
-    int i;
-    for (i=0; i<rows; i++)
+    for (int i=0; i<rows; i++)
         array[i] = &(data[cols*i]);
 
     return array;
 }
-
-int ***alloc_3d_int(int l,int m,int n)
-{
- 	int ***arr3D;
-	int i,j,k;
-
-	arr3D = (int***)malloc(l * sizeof(int **));
-
-	for(i=0;i<l;i++)
-	{
-		arr3D[i] = (int**)malloc(m * sizeof(int*));
-		for(j=0;j<m;j++)
-		{
-			arr3D[i][j] = (int*)malloc(n*sizeof(int));
-		}
-	}
-
-	return arr3D;
-}
-
 
 
 int main (int argc, char **argv) {
@@ -98,159 +103,136 @@ int main (int argc, char **argv) {
 	MPI_Comm_rank(MPI_COMM_WORLD, &my_id);
 	MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
 
-	int count = 0;
-
-	int column_count =0;
-	int row_count = 0;
-
-	if(my_id == 0) {
+  if(my_id == 0) {
 		// MASTER - NODE
 
-		// Input Reading
-		// Only for Master-Node
-		 
-  		int matrice_size;
+    FILE *file = fopen(argv[1], "r");
+    fscanf(file, "%d", &matrice_size);
+    maze = alloc_2d_int(matrice_size, matrice_size);
 
- 		FILE *file;
-  		file=fopen(argv[1], "r");
-  		fscanf(file,"%d",&matrice_size);
+    for (int i = 0; i < matrice_size; i++)
+        for (int j = 0; j < matrice_size; j++)
+            if (!fscanf(file, "%d", &maze[i][j]))
+                break;
 
-	/*matrix*/
-	
-  	/*
-	int** mat=malloc(matrice_size*sizeof(int*)); 
-	for(i=0;i<matrice_size;++i)
-		mat[i]=malloc(matrice_size*sizeof(int));
-	*/
-		int** mat = alloc_2d_int(matrice_size,matrice_size);
+    fclose(file);
 
-		int i;
-  		int j;
- 		for(i = 0; i < matrice_size; i++)
- 	 	{
-      		for(j = 0; j < matrice_size; j++) 
-      		{
-  		//Use lf format specifier, %c is for character
-       			if (!fscanf(file, "%d", &mat[i][j])) 
-           			break;
-      // mat[i][j] -= '0'; 
-      // printf("%d   ",mat[i][j]); //Use lf format specifier, \n is for new line
-    		  }
-      //printf("\n");
-  		}
- 	 	fclose(file);
+    row_num_fproc = matrice_size / (num_procs - 1);
+    printf("num_procs %d\nrow_num_fproc %d\nmatrice_size %d\n ",num_procs, row_num_fproc, matrice_size);
 
- 	 	int row_num_fproc = matrice_size/(num_procs-1);
- 	 	printf("num_procs %d\n row_num_fproc %d\n matrice_size %d\n ",num_procs,row_num_fproc,matrice_size);
- 	 	
- 	 	//alloc global array
- 	 	maze=alloc_3d_int(num_procs-1,row_num_fproc,matrice_size);
- 	 	//divide matrice to slave processors
- 	 	int*** array3d= alloc_3d_int(num_procs-1,row_num_fproc,matrice_size);
- 	 	int k;
+    for(int i = 1; i < num_procs; i++) {
+      int** node_maze = alloc_2d_int(row_num_fproc, matrice_size);
 
- 	 	for (i=0;i<num_procs-1;i++)
- 	 	{
- 	 		for(j=0; j< row_num_fproc ; j++)
- 	 		{
- 	 		
- 	 			array3d[i][j] = mat[i*2 +j];
- 	 		}	
-		 }
+      for(int k = 0; k < row_num_fproc; k++) {
+        for(int l = 0; l < matrice_size; l++) {
+          node_maze[k][l] = maze[k + ((i - 1) * row_num_fproc)][l];
+        }
+      }
 
-	 	int *sizeArray; 
-	 	sizeArray =(int *)malloc(2*sizeof(int));
-	 	sizeArray[0]=row_num_fproc;
-	 	sizeArray[1]=matrice_size; 
 
-	 	//send matrice parts' sizes
-	 	for (i = 1; i < num_procs; ++i)
-	 	{
-	 		MPI_Send(&sizeArray[0],2,MPI_INT,i,1,MPI_COMM_WORLD);	
-	 	}
+      //MPI_Send(&i, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+      MPI_Send(&row_num_fproc, 1, MPI_INT, i, 0, MPI_COMM_WORLD);
+      MPI_Send(&matrice_size, 1 , MPI_INT, i, 1, MPI_COMM_WORLD);
+      MPI_Send(&(node_maze[0][0]), row_num_fproc * matrice_size, MPI_INT, i, 2, MPI_COMM_WORLD);
+      //break;
+    }
 
-	 	//sends matrice parts	
-	 	for(i=1 ; i < num_procs;i++)
-	 	{
-	 		MPI_Send(&(array3d[i-1]),row_num_fproc*matrice_size,MPI_INT,i,2,MPI_COMM_WORLD);
-	 	}
+    array_signal = alloc_2d_int(matrice_size,matrice_size);
 
-	 	int ***testArray;
-	 	testArray=alloc_3d_int(num_procs-1,row_num_fproc,matrice_size);
+    //monitor slaves
+    for(int i = 0 ; i< row_num_fproc;i++)
+    {
+    	for(int j = 0 ; j < matrice_size; j++)
+    	{
+    		//sends signal to slaves for iteration
+    		for (int k = 1; k < num_procs; k++)
+    		{
+    			int message=1;
+    			MPI_Send(&message,1,MPI_INT,k,WAIT_TAG,MPI_COMM_WORLD);
+    		}
 
-	 	
-	 	for(i=0;i<row_num_fproc;i++){
-	 		for(j=0;j<matrice_size;j++){
-	 			monitorSlaves(i,j);
-	 		}
-	 	}
+    		//waits until all slaves sent signal for completion
+    		while (monitorSlaves(i,j,array_signal,matrice_size,num_procs))
+    		{
+    			for(int u = 1 ; u < num_procs; u++)
+    			{
+    				MPI_Recv(&array_signal[i+u-1][j],1,MPI_INT,u,SIGNAL_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    			}
 
+    		}
+
+    	}
+    }
+
+
+
+    int** maze_finish = alloc_2d_int(matrice_size,matrice_size);
+    
+    for(int i = 1; i < num_procs; i++) {
+      int** node_maze = alloc_2d_int(row_num_fproc, matrice_size);
+
+      MPI_Recv(&(node_maze[0][0]), row_num_fproc*matrice_size, MPI_INT, i, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      for(int k = 0; k < row_num_fproc; k++) {
+        for(int l = 0; l < matrice_size; l++) {
+          maze_finish[k + ((i - 1) * row_num_fproc)][l] = node_maze[k][l];
+        }
+      }
+
+    }
+
+
+
+
+
+
+    printf("*****************\n");
+    for (int i = 0; i < matrice_size; ++i)
+    {
+     for (int j = 0; j < matrice_size; ++j)
+     {
+       printf("%d ", maze_finish[i][j]);
+     }
+     printf("\n");
+    }
+
+
+
+  } else {
+    int row_num_fproc, matrice_size;
+    MPI_Recv(&row_num_fproc, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&matrice_size, 1, MPI_INT, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+    int** node_maze = alloc_2d_int(row_num_fproc, matrice_size);
+    MPI_Recv(&(node_maze[0][0]), row_num_fproc * matrice_size, MPI_INT, 0, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+
+    for(int i = 0; i< row_num_fproc  ;i++)
+    {
+    	for (int j = 0; j < matrice_size; j++)
+    	{
+    		waitMaster();
+    		node_maze[i][j] = checkNeighboors(i,j,my_id,node_maze,row_num_fproc,matrice_size);
+    		signalMaster();
+    	}
+
+    }
+
+	  //MPI_Recv(&node_maze, 200, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 /*
-	 	for(i=1;i<num_procs;i++)
-	 	{
-	 		
-	 		MPI_Recv(&(maze[i-1][0][0]),row_num_fproc*matrice_size,MPI_INT,i,3,MPI_COMM_WORLD,MPI_STATUS_IGNORE);		
-
-	 	}
-		
+    for(int k = 0; k < row_num_fproc ; k++) {
+      for(int l = 0; l < matrice_size; l++) {
+        //node_maze[k][l] = maze[k + ((i - 1) * row_num_fproc)][l];
+        printf("%d ", node_maze[k][l]);
+      }
+      printf("\n");
+    }
+      printf("------------------\n");
 */
-	 	//MPI_Gather(NULL,row_num_fproc*matrice_size,MPI_INT,&(testArray[0][0][0]),row_num_fproc*matrice_size,MPI_INT,0,MPI_COMM_WORLD);
-
-	 	int **temp = alloc_2d_int(row_num_fproc,matrice_size);
-
-	 	MPI_Recv(&(temp[0][0]),row_num_fproc*matrice_size,MPI_INT,1,3,MPI_COMM_WORLD,MPI_STATUS_IGNORE);	
- 	
- 	
- 	 	for (i = 0; i <1;i++)
- 	 	{
- 			 
- 	 		for(j=0;j<row_num_fproc;j++)
- 	 		{
- 	 			for (k = 0; k < matrice_size; k++)
- 	 			{
- 	 				printf("%d\t " ,temp[j][k]); 	 			
- 	 			
- 	 			}
- 	 			printf("\n");
- 	 		}
- 	 		printf("\n --------------- \n");
- 	 	}
- 		
-
-	
-	} 
-	else  //slave part
-	{
-			
-		int* sizeArray;
-		sizeArray=(int *)malloc(2*sizeof(int));
-		MPI_Recv(&sizeArray[0],2,MPI_INT,0,1,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-		
-		int** matrice;
-		matrice = alloc_2d_int(sizeArray[0],sizeArray[1]);
-
-		//receive data from master
-		int size= sizeArray[0]*sizeArray[1];
-		MPI_Recv(&(matrice[0][0]),size,MPI_INT,0,2,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-
-		int i,j;
-		for( i= 0; i < sizeArray[0];i++){
-			for(j=0; j < sizeArray[1];j++){
-				waitMaster(i,j);
-				//matrice[i][j] = checkNeighboors(i,j,my_id,&matrice,sizeArray[0],sizeArray[1]);
-				//matrice[i][j] = 0;
-				signalMaster(i,j,my_id);
-
-			}
-		}
-
-		//MPI_Gather(&(matrice[0][0]),size,MPI_INT,&(maze[my_id-1][0][0]),size,MPI_INT,0,MPI_COMM_WORLD);
-		MPI_Send(&(matrice[0][0]),size,MPI_INT,0,3,MPI_COMM_WORLD);
-
-	} //end of slave
+      MPI_Send(&(node_maze[0][0]),row_num_fproc * matrice_size, MPI_INT, 0, 3, MPI_COMM_WORLD);
+  }
 
 
-	MPI_Finalize();
+  MPI_Finalize();
 
-	return 0;
+  return 0;
 }

@@ -7,6 +7,8 @@
 
 int** maze;
 int matrice_size, row_size, row_num_fproc;
+int** maze_finish;
+
 
 int **alloc_2d_int(int rows, int cols) {
     int *data = (int *)malloc(rows*cols*sizeof(int));
@@ -60,6 +62,32 @@ int main (int argc, char **argv) {
       //break;
     }
 
+    int** maze_finish = alloc_2d_int(matrice_size,matrice_size);
+    
+    for(int i = 1; i < num_procs; i++) {
+      int** node_maze = alloc_2d_int(row_num_fproc, matrice_size);
+
+      MPI_Recv(&(node_maze[0][0]), row_num_fproc*matrice_size, MPI_INT, i, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      for(int k = 0; k < row_num_fproc; k++) {
+        for(int l = 0; l < matrice_size; l++) {
+          maze_finish[k + ((i - 1) * row_num_fproc)][l] = node_maze[k][l];
+        }
+      }
+
+    }
+
+    printf("*****************\n");
+    for (int i = 0; i < matrice_size; ++i)
+    {
+     for (int j = 0; j < matrice_size; ++j)
+     {
+       printf("%d ", maze_finish[i][j]);
+     }
+     printf("\n");
+    }
+
+
+
   } else {
     int row_num_fproc, matrice_size;
     MPI_Recv(&row_num_fproc, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -70,15 +98,17 @@ int main (int argc, char **argv) {
 
 
 	  //MPI_Recv(&node_maze, 200, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-    for(int k = 0; k < 10; k++) {
-      for(int l = 0; l < 20; l++) {
+/*
+    for(int k = 0; k < row_num_fproc ; k++) {
+      for(int l = 0; l < matrice_size; l++) {
         //node_maze[k][l] = maze[k + ((i - 1) * row_num_fproc)][l];
         printf("%d ", node_maze[k][l]);
       }
       printf("\n");
     }
-
+      printf("------------------\n");
+*/
+      MPI_Send(&(node_maze[0][0]),row_num_fproc * matrice_size, MPI_INT, 0, 3, MPI_COMM_WORLD);
   }
 
 
