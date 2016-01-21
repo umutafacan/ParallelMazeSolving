@@ -4,7 +4,7 @@ Student Number: 2010400141
 Compile Status: Compiling
 Program Status: Working
 Notes: Matrice size should be divisible by proccessor count-1.
-the 1 for master.
+the 1 for master. This code is for the first approach
 */
 
 #include <stdio.h>

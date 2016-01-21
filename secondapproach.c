@@ -1,3 +1,12 @@
+/*
+Student Name: UMUT AFACAN
+Student Number: 2010400141
+Compile Status: Compiling
+Program Status: Working
+Notes: Matrice size should be divisible by square_root(proccessor count-1).
+the 1 for master. This code for second approach
+*/
+
 #include <stdio.h>
 #include <mpi.h>
 #include <string.h>
@@ -10,67 +19,86 @@ int** maze;
 int matrice_size, row_size, row_num_fproc;
 int** array_signal;
 
+#define A_DIRECTION 30
+#define B_DIRECTION 31
+#define C_DIRECTION 32
+#define D_DIRECTION 33
+
+#define NEXT_ITERATION 15
+#define DEADEND_SIGNAL 14
 
 
 
 int checkCells(int i,int j,int proc_id,int **array, int row, int col,int *upperLine, int *lowerLine,int *rightLine,int *leftLine,int p)
 {
-	if(array[i][j] == 0)
+	if(array[i][j] == 0){
 		return 0;// cell is already wall or marked
+  }else{
 
-	
-	int count=0;
-	//check above
-	if(i>0)
-	{
-		if(array[i-1][j] == 0)
-			count++;
+    	
+    	int count=0;
+    	//check above
+    	if(i > 0)
+    	{
+    		if(array[i-1][j] == 0){
+    			count++;
+        }
+    	}
+    	else if((proc_id-1)/p > 0 )
+    	{
+    	 	
+        if(upperLine[j]== 0){
+
+    	 		count++;
+        }
+    	}
+    	//check right
+    	if(j < col-1)
+    	{
+    		if(array[i][j+1] == 0){
+    			count++;
+        }
+    	}
+      else if( (proc_id-1)%p < p-1)
+      {
+        if(rightLine[i] == 0){
+          count++;
+        }
+      }
+
+    	//check below
+    	if(i < row-1)
+    	{
+    		if(array[i+1][j] == 0)
+    			count++;
+    	}else if( (proc_id-1)/p < p-1 )
+    	{
+    		if(lowerLine[j] == 0)
+    			count++;
+    	}
+
+    		// check left
+    	if(j > 0)
+    	{
+    		if(array[i][j-1] == 0){
+    			count++;
+        }
+    	}else if( (proc_id-1) % p > 0)
+      {
+        if(leftLine[i] == 0){
+          count++;
+        }
+      }
+
+
+    	if (count > 2 )
+    	{
+    		return 2; //cell is surrounded by 3 walls
+    	}else
+      {
+    		return 1; // cell is not surrounded by 3 walls
+      }
 	}
-	else if((proc_id-1)/p > 0 )
-	{
-	 	if(upperLine[j]== 0)
-	 		count++;
-	}
-	//check right
-	if(j<col-1)
-	{
-		if(array[i][j+1] == 0)
-			count++;
-	}else if( (proc_id-1)%p < p-1)
-  {
-    if(rightLine[j] == 0)
-      count++;
-  }
-
-	//check below
-	if(i<row-1)
-	{
-		if(array[i+1][j] == 0)
-			count++;
-	}else if( (proc_id-1)/p < p-1 )
-	{
-		if(lowerLine[j] == 0)
-			count++;
-	}
-
-		// check left
-	if(j>0)
-	{
-		if(array[i][j-1] == 0)
-			count++;
-	}else if( (proc_id-1) % p > 0)
-  {
-    if(leftLine[j] == 0)
-      count++;
-  }
-
-
-	if (count == 3)
-	{
-		return 2; //cell is surrounded by 3 walls
-	}else
-		return 1; // cell is not surrounded by 3 walls
-	
 } 
 
 int *getLowestRow(int** array, int n)
@@ -140,10 +168,22 @@ int main (int argc, char **argv) {
 
     fclose(file);
 
+    //manage output file
+    //output file
+    char output[80] = "";
+    char *val = strtok(argv[2], ".");
+    strcat(output, val);
+    val = strtok(NULL, ":");
+    strcat(output, ".txt");
+
+    // redirecting stdout to file.
+    stdout = freopen(output, "w", stdout);
+
+
     int p = sqrt(num_procs-1); 
     int sub_size = matrice_size/p;
 
-    printf("num_procs %d\nrow_num_fproc %d\nmatrice_size %d\n ",num_procs, row_num_fproc, matrice_size);
+    
 
    
     //split maze to smaller parts and distribute to slaves
@@ -181,28 +221,27 @@ int main (int argc, char **argv) {
     }
 
     int iteration = 0;
-    while(flag == 1)
+    while(flag == 1 )
     {
-    	printf("iteration count : %d ----\n",iteration++);
+
+    	
     	//signals iteration	
     	flag=0;
        	for (int i = 1; i < num_procs ; i++)
-    	{
-    		int deadend=0;
-    		MPI_Recv(&deadend,1,MPI_INT,i,14,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-    		if (deadend == 1)
-    		{
-    			//if any deadend exist signals next iteration
-    			flag=1;
-    		}
-    	}
+      	 {
+      		int deadend=0;
+      		MPI_Recv(&deadend,1,MPI_INT,i,14,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+      		if (deadend == 1)
+      		{
+      			//if any deadend exist signals next iteration
+      			flag=1;
+      		}
+      	}
 
     	for (int i = 1; i < num_procs ; ++i)
     	{
-    		
-    		MPI_Send(&flag,1,MPI_INT,i,15,MPI_COMM_WORLD);
+            MPI_Send(&flag,1,MPI_INT,i,15,MPI_COMM_WORLD);
     	}
-
 
     }
 
@@ -224,11 +263,7 @@ int main (int argc, char **argv) {
     }
 
 
-
-
-
-
-    printf("*****************\n");
+    //print out for the file
     for (int i = 0; i < matrice_size; ++i)
     {
      for (int j = 0; j < matrice_size; ++j)
@@ -258,20 +293,21 @@ int main (int argc, char **argv) {
     while(flag)
     {
 
-      	int lowerLine[sub_size];
-      	int upperLine[sub_size];
-        int rightLine[sub_size];
-        int leftLine[sub_size];
+      	int *lowerLine = (int *)malloc(sub_size*sizeof(int));
+      	int *upperLine= (int *)malloc(sub_size*sizeof(int));
+        int *rightLine= (int *)malloc(sub_size*sizeof(int));
+        int *leftLine= (int *)malloc(sub_size*sizeof(int));
         
       	//if first column
   	    if( (my_id-1)%p == 0){
   	    	 //get right from right neighboor
-  	    	MPI_Recv(&rightLine,sub_size,MPI_INT,my_id+1,30,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+  	    	MPI_Recv(&(rightLine[0]),sub_size,MPI_INT,my_id+1,30,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
   	    	//send to left neighboor
           int* rightest= malloc(sub_size*sizeof(int));
-          rightest=getRightestColumn(node_maze,sub_size); 
-  	    	MPI_Send(&rightest,sub_size,MPI_INT,my_id+1,31,MPI_COMM_WORLD);
+          rightest=getRightestColumn(node_maze,sub_size);
+
+  	    	MPI_Send(&(rightest[0]),sub_size,MPI_INT,my_id+1,31,MPI_COMM_WORLD);
 
   		
     		}
@@ -280,15 +316,15 @@ int main (int argc, char **argv) {
     		{
     			//send upper neighboor
           int* leftest=getLeftestColumn(node_maze,sub_size);
-    			MPI_Send(&leftest,sub_size,MPI_INT,my_id-1,30,MPI_COMM_WORLD);
+    			MPI_Send(&leftest[0],sub_size,MPI_INT,my_id-1,30,MPI_COMM_WORLD);
     			//get from right neighboor
-    			MPI_Recv(&rightLine,sub_size,MPI_INT,my_id+1,30,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    			MPI_Recv(&rightLine[0],sub_size,MPI_INT,my_id+1,30,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
     			//get from left 
-    			MPI_Recv(&leftLine,sub_size,MPI_INT,my_id-1,31,MPI_COMM_WORLD,MPI_STATUS_IGNORE);			
+    			MPI_Recv(&leftLine[0],sub_size,MPI_INT,my_id-1,31,MPI_COMM_WORLD,MPI_STATUS_IGNORE);			
     			//send to right;
           int* rightest=getRightestColumn(node_maze,sub_size);
-    			MPI_Send(&rightest,sub_size,MPI_INT,my_id+1,31,MPI_COMM_WORLD);
+    			MPI_Send(&rightest[0],sub_size,MPI_INT,my_id+1,31,MPI_COMM_WORLD);
     			
     			
 
@@ -297,38 +333,39 @@ int main (int argc, char **argv) {
     		{
     			//send to upper
           int* leftest=getLeftestColumn(node_maze,sub_size);
-    			MPI_Send(getLeftestColumn,sub_size,MPI_INT,my_id-1,30,MPI_COMM_WORLD);
+    			MPI_Send(&leftest[0],sub_size,MPI_INT,my_id-1,30,MPI_COMM_WORLD);
 
     			//get from upper
-    			MPI_Recv(&leftLine,sub_size,MPI_INT,my_id-1,31,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+    			MPI_Recv(&leftLine[0],sub_size,MPI_INT,my_id-1,31,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
     		}
         
           //if first row
         if( (my_id-1)/p == 0){
            //get lowerline from below neighboor
-          MPI_Recv(&lowerLine,sub_size,MPI_INT,my_id+p,32,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+          MPI_Recv(&lowerLine[0],sub_size,MPI_INT,my_id+p,32,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
           //send to lower neighboor
           int* lowest = getLowestRow(node_maze,sub_size);
-          MPI_Send(&lowest,sub_size,MPI_INT,my_id+p,33,MPI_COMM_WORLD);
+          MPI_Send(&lowest[0],sub_size,MPI_INT,my_id+p,33,MPI_COMM_WORLD);
 
       
         }
         //other slaves
         else if( (my_id-1)/p <p-1)
         {
+          
           //send upper neighboor
           int* uppest=getUppestRow(node_maze,sub_size);
-          MPI_Send(&uppest,sub_size,MPI_INT,my_id-p,32,MPI_COMM_WORLD);
+          MPI_Send(&uppest[0],sub_size,MPI_INT,my_id-p,32,MPI_COMM_WORLD);
           //get from lower neighboor
-          MPI_Recv(&lowerLine,sub_size,MPI_INT,my_id+p,32,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+          MPI_Recv(&lowerLine[0],sub_size,MPI_INT,my_id+p,32,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
           //get from upper 
-          MPI_Recv(&upperLine,sub_size,MPI_INT,my_id-p,33,MPI_COMM_WORLD,MPI_STATUS_IGNORE);      
+          MPI_Recv(&upperLine[0],sub_size,MPI_INT,my_id-p,33,MPI_COMM_WORLD,MPI_STATUS_IGNORE);      
           //send to lower;
           int* lowest=getLowestRow(node_maze,sub_size);
-          MPI_Send(&lowest,sub_size,MPI_INT,my_id+p,33,MPI_COMM_WORLD);
+          MPI_Send(&lowest[0],sub_size,MPI_INT,my_id+p,33,MPI_COMM_WORLD);
           
           
 
@@ -337,11 +374,10 @@ int main (int argc, char **argv) {
         {
           //send to upper
           int* uppest=getUppestRow(node_maze,sub_size);
-          MPI_Send(&uppest,sub_size,MPI_INT,my_id-p,32,MPI_COMM_WORLD);
+          MPI_Send(&uppest[0],sub_size,MPI_INT,my_id-p,32,MPI_COMM_WORLD);
 
           //get from upper
-          MPI_Recv(&upperLine,sub_size,MPI_INT,my_id-p,33,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-
+          MPI_Recv(&upperLine[0],sub_size,MPI_INT,my_id-p,33,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
         }
 
 
@@ -351,12 +387,11 @@ int main (int argc, char **argv) {
 	    {
 	    	for (int j = 0; j < sub_size; j++)
 	    	{
-		    	
+		    	//checkCells(int i,int j,int proc_id,int **array, int row, int col,int *upperLine, int *lowerLine,int *rightLine,int *leftLine,int p)
 		    	int res = checkCells(i,j,my_id,node_maze,sub_size,sub_size,upperLine,lowerLine,rightLine,leftLine,p);
-          
 	    		if(2 == res )
 	    		{
-	    			node_maze[i][j]=0;
+	    			node_maze[i][j] = 0;
 	    			deadend=1; // deadend exists
 	    			//printf("deadend exists\n");
 	    		}
@@ -364,6 +399,7 @@ int main (int argc, char **argv) {
 	    	}
 	    }
 	   
+    
 	    
 
 	    //sends deadend data to master
